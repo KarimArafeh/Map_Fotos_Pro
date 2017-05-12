@@ -4,6 +4,7 @@ import android.content.Intent;
 import android.net.Uri;
 import android.os.Environment;
 import android.provider.MediaStore;
+import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
 import android.util.DisplayMetrics;
@@ -12,6 +13,12 @@ import android.view.LayoutInflater;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
+
+import com.google.android.gms.tasks.OnFailureListener;
+import com.google.android.gms.tasks.OnSuccessListener;
+import com.google.firebase.storage.FirebaseStorage;
+import com.google.firebase.storage.StorageReference;
+import com.google.firebase.storage.UploadTask;
 
 import org.osmdroid.api.IMapController;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
@@ -40,8 +47,11 @@ public class MainActivityFragment extends Fragment {
     private CompassOverlay mCompassOverlay;
     //private MinimapOverlay mMinimapOverlay;
 
-
     private Button takeFoto;
+
+    private StorageReference mStorageRef;
+
+
     public MainActivityFragment() {
     }
 
@@ -49,6 +59,8 @@ public class MainActivityFragment extends Fragment {
     public View onCreateView(LayoutInflater inflater, ViewGroup container,
                              Bundle savedInstanceState) {
         View view = inflater.inflate(R.layout.fragment_main, container, false);
+
+
 
 
         map = (MapView) view.findViewById(R.id.mapView);
@@ -66,6 +78,9 @@ public class MainActivityFragment extends Fragment {
                 dispatchTakePictureIntent();
             }
         });
+
+        mStorageRef = FirebaseStorage.getInstance().getReference();
+
 
         return view;
     }
@@ -176,6 +191,24 @@ public class MainActivityFragment extends Fragment {
         );
         startActivityForResult(i, ACTIVITAT_SELECCIONAR_IMATGE);
 
+        Uri file = Uri.fromFile(new File(mCurrentPhotoPath));
+
+        StorageReference riversRef = mStorageRef.child(mCurrentPhotoPath);
+
+        riversRef.putFile(file).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
+            @Override
+            public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
+                // Get a URL to the uploaded content
+                Uri downloadUrl = taskSnapshot.getDownloadUrl();
+            }
+        })
+                .addOnFailureListener(new OnFailureListener() {
+                    @Override
+                    public void onFailure(@NonNull Exception exception) {
+                        // Handle unsuccessful uploads
+                        // ...
+                    }
+                });
 
 
         return image;
