@@ -7,7 +7,9 @@ import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
+import android.support.v4.app.LoaderManager;
 import android.support.v4.content.FileProvider;
+import android.support.v4.content.LocalBroadcastManager;
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -15,6 +17,10 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 
+import com.firebase.client.DataSnapshot;
+import com.firebase.client.Firebase;
+import com.firebase.client.FirebaseError;
+import com.firebase.client.ValueEventListener;
 import com.google.android.gms.tasks.OnFailureListener;
 import com.google.android.gms.tasks.OnSuccessListener;
 import com.google.firebase.storage.FirebaseStorage;
@@ -62,7 +68,7 @@ public class MainActivityFragment extends Fragment {
         View view = inflater.inflate(R.layout.fragment_main, container, false);
 
 
-
+        Firebase.setAndroidContext(this.getContext());
 
         map = (MapView) view.findViewById(R.id.mapView);
         takeFoto = (Button) view.findViewById(R.id.bt_foto);
@@ -161,9 +167,12 @@ public class MainActivityFragment extends Fragment {
                         Uri.fromFile(photoFile));
                 startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO);
                 Log.d("photo ------ > : " , photoFile.toString());
+                addLocation();
             }
         }
     }
+
+
 
     //Creem un fitxer on guardar la foto
     String mCurrentPhotoPath;
@@ -185,7 +194,8 @@ public class MainActivityFragment extends Fragment {
             e.printStackTrace();
         }
         // Save a file: path for use with ACTION_VIEW intents
-        mCurrentPhotoPath = "file:" + image.getAbsolutePath();
+        //mCurrentPhotoPath = "file:" + image.getAbsolutePath();
+        mCurrentPhotoPath = image.getAbsolutePath();
         Log.d(" photo path  -------------------- : " , mCurrentPhotoPath );
 
         Intent i = new Intent(
@@ -196,6 +206,8 @@ public class MainActivityFragment extends Fragment {
         Uri file = Uri.fromFile(new File(mCurrentPhotoPath));
 
         StorageReference riversRef = mStorageRef.child(mCurrentPhotoPath);
+
+        Log.d("file : " , file.toString());
 
         riversRef.putFile(file).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
             @Override
@@ -214,5 +226,50 @@ public class MainActivityFragment extends Fragment {
 
 
         return image;
+    }
+
+    private void addLocation() {
+
+        Firebase ref = new Firebase("https://mapfotospro.firebaseio.com/Locations");
+
+        //Getting values to store
+        int longitude = map.getLongitudeSpan();
+        int latitude = map.getLatitudeSpan();
+
+        //Creating Person object
+        final Locations locat = new Locations();
+
+        //Adding values
+        locat.Long = longitude;
+        locat.Lat = latitude;
+
+        //Storing values to firebase
+        //ref.child("Locations").setValue(locat);
+        ref.push().setValue(locat);
+
+        //Value event listener for realtime data update
+
+        ref.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot snapshot) {
+                for (DataSnapshot postSnapshot : snapshot.getChildren()) {
+                    //Getting the data from snapshot
+                    Locations loc = postSnapshot.getValue(Locations.class);
+
+                    Locations location = new Locations();
+                    location.Lat = loc.Lat;
+                    location.Long = loc.Long;
+
+                    String string = "Longitude: "+ loc.Long +"\nLatitude: "+loc.Lat+"\n\n";
+                    Log.d("info : --------- " , string);
+                }
+            }
+
+            @Override
+            public void onCancelled(FirebaseError firebaseError) {
+
+            }
+        });
+
     }
 }
