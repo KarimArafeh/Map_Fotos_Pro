@@ -5,7 +5,8 @@ package com.example.y2793623b.map_fotos_pro;
  */
 public class Locations {
 
-    public int Long;
-    public int Lat;
+    public String path;
+    public double lon;
+    public double lat;
 
 }

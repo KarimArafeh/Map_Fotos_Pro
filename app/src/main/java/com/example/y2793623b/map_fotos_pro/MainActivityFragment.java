@@ -7,9 +7,7 @@ import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
-import android.support.v4.app.LoaderManager;
-import android.support.v4.content.FileProvider;
-import android.support.v4.content.LocalBroadcastManager;
+
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
@@ -17,20 +15,14 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 
-import com.firebase.client.DataSnapshot;
 import com.firebase.client.Firebase;
-import com.firebase.client.FirebaseError;
-import com.firebase.client.ValueEventListener;
-import com.google.android.gms.tasks.OnFailureListener;
-import com.google.android.gms.tasks.OnSuccessListener;
+
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
-import com.google.firebase.storage.UploadTask;
-
 import org.osmdroid.api.IMapController;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
 import org.osmdroid.views.MapView;
-import org.osmdroid.views.overlay.MinimapOverlay;
+
 import org.osmdroid.views.overlay.ScaleBarOverlay;
 import org.osmdroid.views.overlay.compass.CompassOverlay;
 import org.osmdroid.views.overlay.compass.InternalCompassOrientationProvider;
@@ -54,7 +46,12 @@ public class MainActivityFragment extends Fragment {
     private CompassOverlay mCompassOverlay;
     //private MinimapOverlay mMinimapOverlay;
 
+    private Gps gps;
+    double longitude;
+    double latitude;
+
     private Button takeFoto;
+    private Button takeVideo;
 
     private StorageReference mStorageRef;
 
@@ -72,6 +69,7 @@ public class MainActivityFragment extends Fragment {
 
         map = (MapView) view.findViewById(R.id.mapView);
         takeFoto = (Button) view.findViewById(R.id.bt_foto);
+        takeVideo = (Button) view.findViewById(R.id.bt_video);
 
         initializeMap();
         setZoom();
@@ -83,6 +81,13 @@ public class MainActivityFragment extends Fragment {
             @Override
             public void onClick(View v) {
                 dispatchTakePictureIntent();
+            }
+        });
+
+        takeVideo.setOnClickListener(new View.OnClickListener() {
+            @Override
+            public void onClick(View v) {
+                dispatchTakeVideoIntent();
             }
         });
 
@@ -166,12 +171,34 @@ public class MainActivityFragment extends Fragment {
                 takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT,
                         Uri.fromFile(photoFile));
                 startActivityForResult(takePictureIntent, REQUEST_TAKE_PHOTO);
-                Log.d("photo ------ > : " , photoFile.toString());
-                addLocation();
+                addLocation(photoFile.toString());
             }
         }
     }
 
+
+    //Video
+    static final int REQUEST_TAKE_VIDEO = 2;
+    private void dispatchTakeVideoIntent() {
+
+        Intent takeVideoIntent = new Intent(MediaStore.ACTION_VIDEO_CAPTURE);
+
+        // Ensure that there's a camera activity to handle the intent
+        if (takeVideoIntent.resolveActivity(getContext().getPackageManager()) != null) {
+
+            // Create the File where the photo should go
+            File videoFile = null;
+            videoFile = createVideoFile(REQUEST_TAKE_VIDEO);
+
+            // Continue only if the File was successfully created
+            if (videoFile != null) {
+                takeVideoIntent.putExtra(MediaStore.EXTRA_OUTPUT,
+                        Uri.fromFile(videoFile));
+                startActivityForResult(takeVideoIntent, REQUEST_TAKE_VIDEO);
+                addLocation(videoFile.toString());
+            }
+        }
+    }
 
 
     //Creem un fitxer on guardar la foto
@@ -203,73 +230,54 @@ public class MainActivityFragment extends Fragment {
         );
         startActivityForResult(i, ACTIVITAT_SELECCIONAR_IMATGE);
 
-        Uri file = Uri.fromFile(new File(mCurrentPhotoPath));
-
-        StorageReference riversRef = mStorageRef.child(mCurrentPhotoPath);
-
-        Log.d("file : " , file.toString());
-
-        riversRef.putFile(file).addOnSuccessListener(new OnSuccessListener<UploadTask.TaskSnapshot>() {
-            @Override
-            public void onSuccess(UploadTask.TaskSnapshot taskSnapshot) {
-                // Get a URL to the uploaded content
-                Uri downloadUrl = taskSnapshot.getDownloadUrl();
-            }
-        })
-                .addOnFailureListener(new OnFailureListener() {
-                    @Override
-                    public void onFailure(@NonNull Exception exception) {
-                        // Handle unsuccessful uploads
-                        // ...
-                    }
-                });
-
-
         return image;
     }
 
-    private void addLocation() {
+    private File createVideoFile(int requestTakeVideo) {
+        // create a video file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String videoFileName = "MP4_" + timeStamp + "_";
+        File storageDir = Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_PICTURES);
+        File video = null;
+        try {
+            video = File.createTempFile(
+                    videoFileName,  // prefix
+                    ".mp4",         // suffix
+                    storageDir      // directory
+            );
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
-        Firebase ref = new Firebase("https://mapfotospro.firebaseio.com/Locations");
+        return video;
+    }
 
-        //Getting values to store
-        int longitude = map.getLongitudeSpan();
-        int latitude = map.getLatitudeSpan();
+    private void addLocation(String ruta) {
 
-        //Creating Person object
-        final Locations locat = new Locations();
+        Firebase ref = new Firebase("https://mapfotospro.firebaseio.com/Locations-path");
 
-        //Adding values
-        locat.Long = longitude;
-        locat.Lat = latitude;
+        gps = new Gps(getContext());
+        if(gps.canGetLocation())
+        {
+            longitude = gps.getLongitude();
+            latitude = gps.getLatitude();
 
-        //Storing values to firebase
-        //ref.child("Locations").setValue(locat);
-        ref.push().setValue(locat);
+            //Creating object
+            final Locations locat = new Locations();
 
-        //Value event listener for realtime data update
+            //Adding values
+            locat.lon = longitude;
+            locat.lat = latitude;
+            locat.path = ruta;
 
-        ref.addValueEventListener(new ValueEventListener() {
-            @Override
-            public void onDataChange(DataSnapshot snapshot) {
-                for (DataSnapshot postSnapshot : snapshot.getChildren()) {
-                    //Getting the data from snapshot
-                    Locations loc = postSnapshot.getValue(Locations.class);
+            //Storing values to firebase
+            ref.push().setValue(locat);
 
-                    Locations location = new Locations();
-                    location.Lat = loc.Lat;
-                    location.Long = loc.Long;
+        }else {gps.showSettingsAlert();}
 
-                    String string = "Longitude: "+ loc.Long +"\nLatitude: "+loc.Lat+"\n\n";
-                    Log.d("info : --------- " , string);
-                }
-            }
 
-            @Override
-            public void onCancelled(FirebaseError firebaseError) {
 
-            }
-        });
 
     }
 }
