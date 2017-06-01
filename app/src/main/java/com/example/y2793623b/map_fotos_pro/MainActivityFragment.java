@@ -222,7 +222,7 @@ public class MainActivityFragment extends Fragment {
 
                     marker.setPosition(point);
                     marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
-                    marker.setIcon(getResources().getDrawable(R.drawable.walk));
+                    marker.setIcon(getResources().getDrawable(R.drawable.imageareaclose));
                     marker.setTitle(loc.path);
                     marker.setAlpha(0.6f);
 
@@ -247,7 +247,7 @@ public class MainActivityFragment extends Fragment {
         locationsMarkers = new RadiusMarkerClusterer(getContext());
         map.getOverlays().add(locationsMarkers);
 
-        Drawable clusterIconD = getResources().getDrawable(R.drawable.agrupar);
+        Drawable clusterIconD = getResources().getDrawable(R.drawable.imagemultiple);
         Bitmap clusterIcon = ((BitmapDrawable)clusterIconD).getBitmap();
 
         locationsMarkers.setIcon(clusterIcon);
