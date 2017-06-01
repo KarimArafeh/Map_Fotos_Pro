@@ -1,26 +1,39 @@
 package com.example.y2793623b.map_fotos_pro;
 
 import android.content.Intent;
+import android.graphics.Bitmap;
+import android.graphics.drawable.BitmapDrawable;
+import android.graphics.drawable.Drawable;
 import android.net.Uri;
+import android.os.AsyncTask;
 import android.os.Environment;
 import android.provider.MediaStore;
-import android.support.annotation.NonNull;
 import android.support.v4.app.Fragment;
 import android.os.Bundle;
 
 import android.util.DisplayMetrics;
 import android.util.Log;
 import android.view.LayoutInflater;
+import android.view.Menu;
+import android.view.MenuInflater;
+import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Button;
 
+import com.firebase.client.DataSnapshot;
 import com.firebase.client.Firebase;
 
+import com.firebase.client.FirebaseError;
+import com.firebase.client.ValueEventListener;
+import com.firebase.client.annotations.Nullable;
 import com.google.firebase.storage.FirebaseStorage;
 import com.google.firebase.storage.StorageReference;
 import org.osmdroid.api.IMapController;
+import org.osmdroid.bonuspack.clustering.RadiusMarkerClusterer;
+import org.osmdroid.bonuspack.overlays.Marker;
 import org.osmdroid.tileprovider.tilesource.TileSourceFactory;
+import org.osmdroid.util.GeoPoint;
 import org.osmdroid.views.MapView;
 
 import org.osmdroid.views.overlay.ScaleBarOverlay;
@@ -32,7 +45,9 @@ import org.osmdroid.views.overlay.mylocation.MyLocationNewOverlay;
 import java.io.File;
 import java.io.IOException;
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.List;
 
 /**
  * A placeholder fragment containing a simple view.
@@ -45,6 +60,8 @@ public class MainActivityFragment extends Fragment {
     private ScaleBarOverlay mScaleBarOverlay;
     private CompassOverlay mCompassOverlay;
     //private MinimapOverlay mMinimapOverlay;
+    private RadiusMarkerClusterer locationsMarkers;
+    private ArrayList<Locations> locationsList = new ArrayList<>();
 
     private Gps gps;
     double longitude;
@@ -52,8 +69,6 @@ public class MainActivityFragment extends Fragment {
 
     private Button takeFoto;
     private Button takeVideo;
-
-    private StorageReference mStorageRef;
 
 
     public MainActivityFragment() {
@@ -91,11 +106,39 @@ public class MainActivityFragment extends Fragment {
             }
         });
 
-        mStorageRef = FirebaseStorage.getInstance().getReference();
-
-
         return view;
     }
+
+
+
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
+        setHasOptionsMenu(true);
+    }
+
+    //Agreguem els items de menu
+    @Override
+    public void onCreateOptionsMenu(Menu menu, MenuInflater inflater) {
+        super.onCreateOptionsMenu(menu, inflater);
+        inflater.inflate(R.menu.menu_main, menu);
+    }
+
+    @Override
+    public boolean onOptionsItemSelected(MenuItem item) {
+
+        int id = item.getItemId();
+        if(id == R.id.action_markers)
+        {
+            putMarkers();
+        }
+
+        return super.onOptionsItemSelected(item);
+    }
+
+
+
+
 
     private void initializeMap() {
 
@@ -108,12 +151,11 @@ public class MainActivityFragment extends Fragment {
     }
 
 
-
     private void setZoom() {
 
         //  Setteamos el zoom al mismo nivel y ajustamos la posición a un geopunto
         mapController = map.getController();
-        mapController.setZoom(15);
+        mapController.setZoom(14);
 
     }
 
@@ -153,6 +195,63 @@ public class MainActivityFragment extends Fragment {
         map.getOverlays().add(this.mScaleBarOverlay);
         map.getOverlays().add(this.mCompassOverlay);
 
+
+    }
+
+
+    public void putMarkers(){
+
+        locationsList.clear();
+        setupMarkerOverlay();
+
+        Firebase dataBase = new Firebase("https://mapfotospro.firebaseio.com");
+        Firebase contenido = dataBase.child("Locations-path");
+
+        contenido.addValueEventListener(new ValueEventListener() {
+            @Override
+            public void onDataChange(DataSnapshot dataSnapshot) {
+                for (DataSnapshot Snapshot : dataSnapshot.getChildren()) {
+
+                    Locations loc = Snapshot.getValue(Locations.class);
+
+                    locationsList.add(loc);
+
+                    Marker marker = new Marker(map);
+
+                    GeoPoint point = new GeoPoint(loc.lat,loc.lon);
+
+                    marker.setPosition(point);
+                    marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
+                    marker.setIcon(getResources().getDrawable(R.drawable.walk));
+                    marker.setTitle(loc.path);
+                    marker.setAlpha(0.6f);
+
+                    locationsMarkers.add(marker);
+                }
+                locationsMarkers.invalidate();
+                map.invalidate();
+            }
+
+            @Override
+            public void onCancelled(FirebaseError firebaseError) {
+
+            }
+        });
+
+
+    }
+
+
+    private void setupMarkerOverlay() {
+
+        locationsMarkers = new RadiusMarkerClusterer(getContext());
+        map.getOverlays().add(locationsMarkers);
+
+        Drawable clusterIconD = getResources().getDrawable(R.drawable.agrupar);
+        Bitmap clusterIcon = ((BitmapDrawable)clusterIconD).getBitmap();
+
+        locationsMarkers.setIcon(clusterIcon);
+        locationsMarkers.setRadius(100);
 
     }
 
@@ -233,6 +332,7 @@ public class MainActivityFragment extends Fragment {
         return image;
     }
 
+
     private File createVideoFile(int requestTakeVideo) {
         // create a video file name
         String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
@@ -252,6 +352,7 @@ public class MainActivityFragment extends Fragment {
 
         return video;
     }
+
 
     private void addLocation(String ruta) {
 
@@ -280,4 +381,5 @@ public class MainActivityFragment extends Fragment {
 
 
     }
+
 }
