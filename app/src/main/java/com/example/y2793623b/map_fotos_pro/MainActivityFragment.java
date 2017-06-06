@@ -223,7 +223,10 @@ public class MainActivityFragment extends Fragment {
                     marker.setPosition(point);
                     marker.setAnchor(Marker.ANCHOR_CENTER, Marker.ANCHOR_BOTTOM);
                     marker.setIcon(getResources().getDrawable(R.drawable.imageareaclose));
-                    marker.setTitle(loc.path);
+                    String[] titulo = loc.path.split("/");
+
+                    //marker.setTitle(loc.path);
+                    marker.setTitle(titulo[4] + " / " + titulo[5]);
                     marker.setAlpha(0.6f);
 
                     locationsMarkers.add(marker);
